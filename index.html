@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>密码生成工具</title>
+    <script src="crypto-js.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: auto;
+            text-align: center;
+        }
+
+        input,
+        button {
+            margin: 10px 0;
+            padding: 10px;
+            font-size: 16px;
+            width: 100%;
+        }
+
+        .result {
+            font-weight: bold;
+            color: #4CAF50;
+            margin-top: 20px;
+            cursor: pointer;
+        }
+
+        .copy-notice {
+            color: #2196F3;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>密码生成工具</h1>
+        <input type="text" id="username" placeholder="请输入用户名" />
+        <input type="text" id="salt" placeholder="请输入盐值" />
+        <input type="number" id="length" placeholder="请输入密码长度（默认16）" min="1" />
+        <button onclick="generatePassword()">生成密码</button>
+        <div class="result" id="result" onclick="copyToClipboard()"></div>
+        <div class="copy-notice" id="copy-notice" style="display: none;">密码已复制到剪贴板！</div>
+    </div>
+
+    <script>
+        // 定义字符集，只包含大小写字母和数字
+        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+        // 页面加载时，从 Local Storage 恢复上次的输入
+        window.onload = function () {
+            const savedUsername = localStorage.getItem("username");
+            const savedSalt = localStorage.getItem("salt");
+            const savedLength = localStorage.getItem("length");
+            if (savedUsername) document.getElementById("username").value = savedUsername;
+            if (savedSalt) document.getElementById("salt").value = savedSalt;
+            if (savedLength) document.getElementById("length").value = savedLength;
+        };
+
+        // 生成密码函数
+        function generatePassword() {
+            const username = document.getElementById("username").value;
+            const salt = document.getElementById("salt").value;
+            let length = document.getElementById("length").value;
+
+            // 检查输入是否完整
+            if (!username || !salt || !length) {
+                document.getElementById("result").innerText = "请输入用户名、盐值和密码长度！";
+                return;
+            }
+
+            // 确保密码长度为正整数
+            length = parseInt(length, 10);
+            if (isNaN(length) || length <= 0) {
+                document.getElementById("result").innerText = "密码长度必须是大于0的整数！";
+                return;
+            }
+
+            // 保存用户名、盐值和密码长度到 Local Storage
+            localStorage.setItem("username", username);
+            localStorage.setItem("salt", salt);
+            localStorage.setItem("length", length);
+
+            // 使用 CryptoJS 生成 SHA-256 哈希值
+            const combined = username + salt;
+            const hashHex = CryptoJS.SHA256(combined).toString(CryptoJS.enc.Hex);
+
+            // 将十六进制哈希值映射到字符集
+            let password = "";
+            for (let i = 0; i < hashHex.length; i += 2) {
+                const index = parseInt(hashHex.substr(i, 2), 16) % charset.length;
+                password += charset[index];
+                if (password.length >= length) break; // 控制密码长度
+            }
+
+            // 显示生成的密码
+            const resultElement = document.getElementById("result");
+            resultElement.innerText = password;
+            resultElement.style.display = "block";
+
+            // 隐藏复制提示
+            document.getElementById("copy-notice").style.display = "none";
+        }
+
+        // 复制密码到剪贴板
+        function copyToClipboard() {
+            const resultElement = document.getElementById("result");
+            const password = resultElement.innerText;
+
+            // 检查是否有密码可复制
+            if (!password || password === "请输入用户名、盐值和密码长度！" || password === "生成密码时出错！") {
+                return;
+            }
+
+            // 将密码复制到剪贴板
+            navigator.clipboard.writeText(password).then(() => {
+                // 显示复制成功的提示
+                const copyNotice = document.getElementById("copy-notice");
+                copyNotice.style.display = "block";
+
+                // 2秒后隐藏提示
+                setTimeout(() => {
+                    copyNotice.style.display = "none";
+                }, 2000);
+            }).catch(err => {
+                console.error("复制到剪贴板失败:", err);
+            });
+        }
+    </script>
+</body>
+
+</html>
