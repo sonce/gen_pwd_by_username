@@ -15,7 +15,7 @@
             margin: auto;
             text-align: center;
         }
-        input, button {
+        input, textarea, button {
             margin: 10px 0;
             padding: 10px;
             font-size: 16px;
@@ -41,17 +41,28 @@
             color: #2196F3;
             margin-top: 10px;
         }
+        .copy-buttons {
+            margin-top: 20px;
+        }
+        .copy-buttons button {
+            margin: 5px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>密码生成工具</h1>
-        <input type="text" id="username" placeholder="请输入用户名" />
+        <!-- 多行文本框，允许用户输入多个邮箱 -->
+        <textarea id="emails" placeholder="请输入多个邮箱，每行一个" rows="6"></textarea>
         <input type="text" id="salt" placeholder="请输入盐值" />
         <input type="number" id="length" placeholder="请输入密码长度（默认15）" min="1" />
-        <button onclick="generatePassword()">生成</button>
+        <button onclick="generatePasswords()">生成</button>
         <div class="result" id="result"></div>
         <div class="copy-notice" id="copy-notice" style="display: none;">内容已复制到剪贴板！</div>
+        <div class="copy-buttons" id="copy-buttons" style="display: none;">
+            <button id="copy-format-1" onclick="copyToClipboard('format1')">复制发货格式</button>
+            <button id="copy-format-2" onclick="copyToClipboard('format2')">复制卡密格式</button>
+        </div>
     </div>
 
     <script>
@@ -60,34 +71,92 @@
 
         // 页面加载时，从 Local Storage 恢复上次的输入
         window.onload = function() {
-            const savedUsername = localStorage.getItem("username");
+            const savedEmails = localStorage.getItem("emails");
             const savedSalt = localStorage.getItem("salt");
             const savedLength = localStorage.getItem("length");
-            if (savedUsername) document.getElementById("username").value = savedUsername;
+            if (savedEmails) document.getElementById("emails").value = savedEmails;
             if (savedSalt) document.getElementById("salt").value = savedSalt;
             if (savedLength) document.getElementById("length").value = savedLength;
         };
 
+        // 监听邮箱输入框的变化，实时保存内容
+        document.getElementById("emails").addEventListener("input", function() {
+            const emailsContent = this.value;
+            localStorage.setItem("emails", emailsContent);
+        });
+
         // 生成密码函数
-        function generatePassword() {
-            const username = document.getElementById("username").value;
+        function generatePasswords() {
+            const emails = document.getElementById("emails").value.trim();
             const salt = document.getElementById("salt").value;
             const lengthInput = document.getElementById("length").value;
             const length = lengthInput ? parseInt(lengthInput, 10) : 15; // 默认密码长度为15
 
             // 检查输入是否完整
-            if (!username || !salt) {
-                document.getElementById("result").innerHTML = "请输入用户名和盐值！";
+            if (!emails || !salt) {
+                document.getElementById("result").innerHTML = "请输入邮箱和盐值！";
                 return;
             }
 
-            // 保存用户名、盐值和密码长度到 Local Storage
-            localStorage.setItem("username", username);
+            // 保存盐值和密码长度到 Local Storage
             localStorage.setItem("salt", salt);
             localStorage.setItem("length", length);
 
-            // 使用 CryptoJS 生成 SHA-256 哈希值
-            const combined = username + salt;
+            // 用正则匹配所有邮箱
+            const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
+            const emailList = emails.match(emailRegex);
+
+            if (!emailList || emailList.length === 0) {
+                document.getElementById("result").innerHTML = "没有找到有效的邮箱！";
+                return;
+            }
+
+            // 生成所有邮箱的密码
+            let resultHtml = '';
+            const passwordMap = {};  // 存储邮箱和对应的密码
+
+            emailList.forEach(email => {
+                const password = generatePasswordForEmail(email, salt, length);
+                passwordMap[email] = password;
+                resultHtml += `
+                    <span id="email-${email}">
+                        ${email}: ${password}
+                        <button onclick="copyPassword('${email}')">复制密码</button>
+                    </span>
+                `;
+            });
+
+            // 显示生成的账号和密码
+            document.getElementById("result").innerHTML = resultHtml;
+
+            // 根据邮箱数量，显示或隐藏复制按钮
+            if (emailList.length === 1) {
+                // 单个邮箱，显示“复制格式1”和“复制格式2”按钮
+                document.getElementById("copy-buttons").style.display = "block";
+                document.getElementById("copy-format-1").onclick = function() {
+                    copyToClipboard('format1', emailList, passwordMap);
+                };
+                document.getElementById("copy-format-2").onclick = function() {
+                    copyToClipboard('format2', emailList, passwordMap);
+                };
+            } else {
+                // 多个邮箱，显示两个格式的复制按钮
+                document.getElementById("copy-buttons").style.display = "block";
+                document.getElementById("copy-format-1").onclick = function() {
+                    copyToClipboard('format1', emailList, passwordMap);
+                };
+                document.getElementById("copy-format-2").onclick = function() {
+                    copyToClipboard('format2', emailList, passwordMap);
+                };
+            }
+
+            // 隐藏复制提示
+            document.getElementById("copy-notice").style.display = "none";
+        }
+
+        // 根据邮箱和盐值生成密码
+        function generatePasswordForEmail(email, salt, length) {
+            const combined = email + salt;
             const hashHex = CryptoJS.SHA256(combined).toString(CryptoJS.enc.Hex);
 
             // 将十六进制哈希值映射到字符集
@@ -97,36 +166,39 @@
                 password += charset[index];
                 if (password.length >= length) break; // 控制密码长度
             }
-
-            // 显示生成的账号和密码
-            document.getElementById("result").innerHTML = `
-                <span onclick="copyToClipboard('username', '${username}', '${password}')">账号：${username}</span>
-                <span onclick="copyToClipboard('password', '${username}', '${password}')">密码：${password}</span>
-            `;
-
-            // 隐藏复制提示
-            document.getElementById("copy-notice").style.display = "none";
+            return password;
         }
 
-        // 复制到剪贴板
-        function copyToClipboard(type, username, password) {
-            let textToCopy;
-            if (type === "username") {
-                textToCopy = `账号：${username}\n密码：${password}`;
-            } else if (type === "password") {
-                textToCopy = password;
-            }
+        // 复制密码到剪贴板
+        function copyPassword(email) {
+            const password = generatePasswordForEmail(email, document.getElementById("salt").value, parseInt(document.getElementById("length").value));
+            navigator.clipboard.writeText(password).then(() => {
+                const copyNotice = document.getElementById("copy-notice");
+                copyNotice.textContent = "密码已复制到剪贴板！";
+                copyNotice.style.display = "block";
+                setTimeout(() => copyNotice.style.display = "none", 2000);
+            }).catch(err => {
+                console.error("复制密码失败:", err);
+            });
+        }
+
+        // 复制格式1（账号：密码）或格式2（账号 密码）
+        function copyToClipboard(type, emailList, passwordMap) {
+            let textToCopy = "";
+            emailList.forEach(email => {
+                const password = passwordMap[email];
+                if (type === 'format1') {
+                    textToCopy += `账号：${email}\n密码：${password}\n`;
+                } else if (type === 'format2') {
+                    textToCopy += `${email} ${password}\n`;
+                }
+            });
 
             navigator.clipboard.writeText(textToCopy).then(() => {
-                // 显示复制成功的提示
                 const copyNotice = document.getElementById("copy-notice");
-                copyNotice.textContent = `${type === "username" ? "账号和密码" : "密码"}已复制到剪贴板！`;
+                copyNotice.textContent = "内容已复制到剪贴板！";
                 copyNotice.style.display = "block";
-
-                // 2秒后隐藏提示
-                setTimeout(() => {
-                    copyNotice.style.display = "none";
-                }, 2000);
+                setTimeout(() => copyNotice.style.display = "none", 2000);
             }).catch(err => {
                 console.error("复制到剪贴板失败:", err);
             });
