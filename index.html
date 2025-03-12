@@ -162,10 +162,18 @@
             // 将十六进制哈希值映射到字符集
             let password = "";
             for (let i = 0; i < hashHex.length; i += 2) {
-                const index = parseInt(hashHex.substr(i, 2), 16) % charset.length;
-                password += charset[index];
-                if (password.length >= length) break; // 控制密码长度
+            const index = parseInt(hashHex.substr(i, 2), 16) % charset.length;
+            password += charset[index];
+            if (password.length >= length) break; // 控制密码长度
             }
+            
+            // 检查密码是否包含数字
+            if (!/\d/.test(password)) {
+            // 如果不包含数字，则将最后一个字符替换为随机数字
+            const randomDigit = Math.floor(Math.random() * 10); // 0-9的随机数字
+            password = password.substring(0, password.length - 1) + randomDigit;
+            }
+            
             return password;
         }
 
