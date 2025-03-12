@@ -116,7 +116,7 @@
             const passwordMap = {};  // 存储邮箱和对应的密码
 
             emailList.forEach(email => {
-                const password = generatePasswordForEmail(email, salt, length);
+                const password = generatePasswordForEmail(email, salt, length,8);
                 passwordMap[email] = password;
                 resultHtml += `
                     <span id="email-${email}">
@@ -155,7 +155,7 @@
         }
 
         // 根据邮箱和盐值生成密码
-        function generatePasswordForEmail(email, salt, length) {
+        function generatePasswordForEmail(email, salt, length, digit) {
             const combined = email + salt;
             const hashHex = CryptoJS.SHA256(combined).toString(CryptoJS.enc.Hex);
 
@@ -167,11 +167,11 @@
             if (password.length >= length) break; // 控制密码长度
             }
             
-            // 检查密码是否包含数字
-            if (!/\d/.test(password)) {
-            // 如果不包含数字，则将最后一个字符替换为随机数字
-            const randomDigit = Math.floor(Math.random() * 10); // 0-9的随机数字
-            password = password.substring(0, password.length - 1) + randomDigit;
+            // 只有当传入digit参数时，才检查密码是否包含数字
+            if (digit !== undefined && !/\d/.test(password)) {
+            // 如果不包含数字，则将最后一个字符替换为指定的digit或随机数字
+            const digitToUse = (digit !== undefined && !isNaN(digit)) ? digit : Math.floor(Math.random() * 10);
+            password = password.substring(0, password.length - 1) + digitToUse;
             }
             
             return password;
@@ -179,7 +179,7 @@
 
         // 复制密码到剪贴板
         function copyPassword(email) {
-            const password = generatePasswordForEmail(email, document.getElementById("salt").value, parseInt(document.getElementById("length").value));
+            const password = generatePasswordForEmail(email, document.getElementById("salt").value, parseInt(document.getElementById("length").value),8);
             navigator.clipboard.writeText(password).then(() => {
                 const copyNotice = document.getElementById("copy-notice");
                 copyNotice.textContent = "密码已复制到剪贴板！";
