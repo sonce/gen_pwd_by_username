@@ -56,6 +56,7 @@
         <textarea id="emails" placeholder="请输入多个邮箱，每行一个" rows="6"></textarea>
         <input type="text" id="salt" placeholder="请输入盐值" />
         <input type="number" id="length" placeholder="请输入密码长度（默认15）" min="1" />
+        <input type="number" id="digit" placeholder="添加数字（可选）" min="0" max="9" />
         <button onclick="generatePasswords()">生成</button>
         <div class="result" id="result"></div>
         <div class="copy-notice" id="copy-notice" style="display: none;">内容已复制到剪贴板！</div>
@@ -74,9 +75,11 @@
             const savedEmails = localStorage.getItem("emails");
             const savedSalt = localStorage.getItem("salt");
             const savedLength = localStorage.getItem("length");
+            const savedDigit = localStorage.getItem("digit");
             if (savedEmails) document.getElementById("emails").value = savedEmails;
             if (savedSalt) document.getElementById("salt").value = savedSalt;
             if (savedLength) document.getElementById("length").value = savedLength;
+            if (savedDigit) document.getElementById("digit").value = savedDigit;
         };
 
         // 监听邮箱输入框的变化，实时保存内容
@@ -98,9 +101,13 @@
                 return;
             }
 
-            // 保存盐值和密码长度到 Local Storage
+            // 保存盐值、密码长度和数字到 Local Storage
             localStorage.setItem("salt", salt);
             localStorage.setItem("length", length);
+            const digit = document.getElementById("digit").value;
+            if (digit) {
+                localStorage.setItem("digit", digit);
+            }
 
             // 用正则匹配所有邮箱
             const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
@@ -116,7 +123,8 @@
             const passwordMap = {};  // 存储邮箱和对应的密码
 
             emailList.forEach(email => {
-                const password = generatePasswordForEmail(email, salt, length,8);
+                const digit = document.getElementById("digit").value;
+                const password = generatePasswordForEmail(email, salt, length, digit ? parseInt(digit) : undefined);
                 passwordMap[email] = password;
                 resultHtml += `
                     <span id="email-${email}">
@@ -179,7 +187,8 @@
 
         // 复制密码到剪贴板
         function copyPassword(email) {
-            const password = generatePasswordForEmail(email, document.getElementById("salt").value, parseInt(document.getElementById("length").value),8);
+            const digit = document.getElementById("digit").value;
+            const password = generatePasswordForEmail(email, document.getElementById("salt").value, parseInt(document.getElementById("length").value), digit ? parseInt(digit) : undefined);
             navigator.clipboard.writeText(password).then(() => {
                 const copyNotice = document.getElementById("copy-notice");
                 copyNotice.textContent = "密码已复制到剪贴板！";
